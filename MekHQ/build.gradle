@@ -212,7 +212,7 @@ task stageFiles(type: Copy) {
     inputs.dir "${docs}"
     inputs.dir "${mmconf}"
     inputs.dir "${project.ext.plugins}"
-    inputs.files 'license.txt', 'SubmitBug.html', 'changes.txt'
+    inputs.files 'license.txt', 'SubmitBug.html', 'changes.ods'
     outputs.dir fileStagingDir
 
     doLast {
@@ -487,7 +487,7 @@ task sourceZip (type: Zip) {
         exclude "**/build/**"
         exclude "**/.*"
     }
-    archiveFileName = "mekhq-${archiveVersion}-source.zip"
+    archiveFileName = "piratetech-mekhq-${archiveVersion}-source.zip"
     destinationDirectory = file(distributionDir)
 }
 
@@ -497,7 +497,7 @@ task sourceTar (type: Tar) {
         exclude "**/build/**"
         exclude "**/.*"
     }
-    archiveFileName = "mekhq-${archiveVersion}-source.tar.gz"
+    archiveFileName = "piratetech-mekhq-${archiveVersion}-source.tar.gz"
     compression = Compression.GZIP
     destinationDirectory = file(distributionDir)
 }

@@ -19,3 +19,7 @@
 /megamek/src/megamek/common/weapons/piratetech/gaussrifles/ISSilverBulletHeavyGauss.java    - added new weapon, 2/26/24, Meows
 /megamek/src/megamek/common/weapons/piratetech/gaussrifles/ISSilverBulletLightGauss.java    - added new weapon, 2/26/24, Meows
 /megamek/src/megamek/common/WeaponType.java                                                 - added info for ISSilverBulletHeavyGauss, ISSilverBulletLightGauss, CLHAG10, 2/26/24, Rumia
+/megamek/src/megamek/common/AmmoType.java                                                   - added info for PBurnBarrel, 3/2/24, Rumia
+/megamek/src/megamek/common/weapons/PBurnBarrelHandler.java           1                     - Created to handle Burn Barrel, 3/2/24, Rumia
+/megamek/src/megamek/common/weapons/piratetech/misc/PBurnBarrel.java                        - added new weapon, 3/2/24, Rumia
+/megamek/src/megamek/common/WeaponType.java                                                 - added info for PBurnBarrel, 3/2/24
