@@ -24,11 +24,9 @@ import megamek.client.bot.princess.BehaviorSettingsFactory;
 import megamek.client.bot.princess.CardinalEdge;
 import megamek.client.bot.princess.PrincessException;
 import megamek.client.ui.swing.util.PlayerColour;
-import megamek.common.Board;
-import megamek.common.Compute;
-import megamek.common.Entity;
-import megamek.common.UnitNameTracker;
+import megamek.common.*;
 import megamek.common.icons.Camouflage;
+import mekhq.Utilities;
 import mekhq.utilities.MHQXMLUtility;
 import mekhq.campaign.Campaign;
 import mekhq.campaign.personnel.Person;
@@ -39,17 +37,27 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class BotForce {
+public class BotForce implements IPlayerSettings {
     private transient final UnitNameTracker nameTracker = new UnitNameTracker();
     private String name;
     private List<Entity> fixedEntityList;
     private List<Entity> generatedEntityList;
     private List<UUID> traitors;
     private int team;
-    private int start;
+    // deployment settings
+    private int startingPos = Board.START_ANY;
+    private int startOffset = 0;
+    private int startWidth = 3;
+    private int startingAnyNWx = Entity.STARTING_ANY_NONE;
+    private int startingAnyNWy = Entity.STARTING_ANY_NONE;
+    private int startingAnySEx = Entity.STARTING_ANY_NONE;
+    private int startingAnySEy = Entity.STARTING_ANY_NONE;
+    private int deployRound;
     private Camouflage camouflage = new Camouflage(Camouflage.COLOUR_CAMOUFLAGE, PlayerColour.BLUE.name());
     private PlayerColour colour = PlayerColour.BLUE;
     private BehaviorSettings behaviorSettings;
@@ -84,7 +92,7 @@ public class BotForce {
                     Camouflage camouflage, PlayerColour colour) {
         this.name = name;
         this.team = team;
-        this.start = start;
+        this.startingPos = start;
         setFixedEntityList(entityList);
         setCamouflage(camouflage);
         setColour(colour);
@@ -97,6 +105,43 @@ public class BotForce {
         }
         behaviorSettings.setRetreatEdge(CardinalEdge.NEAREST);
         behaviorSettings.setDestinationEdge(CardinalEdge.NONE);
+    }
+
+    @Override
+    public BotForce clone() {
+        final BotForce copy = new BotForce();
+        copy.setName(this.getName());
+        copy.setTeam(this.getTeam());
+        copy.setStartingPos(this.getStartingPos());
+        copy.setStartOffset(this.getStartOffset());
+        copy.setStartWidth(this.getStartWidth());
+        copy.setStartingAnyNWx(this.getStartingAnyNWx());
+        copy.setStartingAnyNWy(this.getStartingAnyNWy());
+        copy.setStartingAnySEx(this.getStartingAnySEx());
+        copy.setStartingAnySEy(this.getStartingAnySEy());
+        copy.setDeployRound(this.getDeployRound());
+        copy.setCamouflage(this.getCamouflage().clone());
+        copy.setColour(this.getColour());
+        copy.setTemplateName(this.getTemplateName());
+        if (this.getBotForceRandomizer() != null) {
+            copy.setBotForceRandomizer(this.getBotForceRandomizer().clone());
+        }
+        // UUID is immutable so this should work
+        copy.traitors = traitors.stream().collect(Collectors.toList());
+        copy.setBehaviorSettings(new BehaviorSettings());
+        copy.getBehaviorSettings().setAutoFlee(this.getBehaviorSettings().shouldAutoFlee());
+        copy.getBehaviorSettings().setForcedWithdrawal(this.getBehaviorSettings().isForcedWithdrawal());
+        copy.getBehaviorSettings().setDestinationEdge(this.getBehaviorSettings().getDestinationEdge());
+        copy.getBehaviorSettings().setRetreatEdge(this.getBehaviorSettings().getRetreatEdge());
+        copy.getBehaviorSettings().setBraveryIndex(this.getBehaviorSettings().getBraveryIndex());
+        copy.getBehaviorSettings().setFallShameIndex(this.getBehaviorSettings().getFallShameIndex());
+        copy.getBehaviorSettings().setHyperAggressionIndex(this.getBehaviorSettings().getHyperAggressionIndex());
+        copy.getBehaviorSettings().setSelfPreservationIndex(this.getBehaviorSettings().getSelfPreservationIndex());
+        copy.getBehaviorSettings().setHerdMentalityIndex(this.getBehaviorSettings().getHerdMentalityIndex());
+        // this bit of trickery seems to work to make a proper copy of the entity list
+        copy.fixedEntityList = this.getFixedEntityListDirect().stream().collect(Collectors.toList());
+
+        return copy;
     }
 
     /* Convert from MM's Board to Princess's HomeEdge */
@@ -180,13 +225,55 @@ public class BotForce {
         this.team = team;
     }
 
-    public int getStart() {
-        return start;
+    @Override
+    public int getStartingPos() {
+        return startingPos;
     }
 
-    public void setStart(int start) {
-        this.start = start;
+    @Override
+    public void setStartingPos(int start) {
+        this.startingPos = start;
     }
+
+    @Override
+    public int getStartOffset() { return startOffset; }
+
+    @Override
+    public void setStartOffset(int startOffset) { this.startOffset = startOffset; }
+
+    @Override
+    public int getStartWidth() { return startWidth; }
+
+    @Override
+    public void setStartWidth(int startWidth) { this.startWidth = startWidth; }
+
+    @Override
+    public int getStartingAnyNWx() { return startingAnyNWx; }
+
+    @Override
+    public void setStartingAnyNWx(int startingAnyNWx) { this.startingAnyNWx = startingAnyNWx; }
+
+    @Override
+    public int getStartingAnyNWy() { return startingAnyNWy; }
+
+    @Override
+    public void setStartingAnyNWy(int startingAnyNWy) { this.startingAnyNWy = startingAnyNWy; }
+
+    @Override
+    public int getStartingAnySEx() { return startingAnySEx; }
+
+    @Override
+    public void setStartingAnySEx(int startingAnySEx) { this.startingAnySEx = startingAnySEx; }
+
+    @Override
+    public int getStartingAnySEy() { return startingAnySEy; }
+
+    @Override
+    public void setStartingAnySEy(int startingAnySEy) { this.startingAnySEy = startingAnySEy; }
+
+    public int getDeployRound() { return deployRound; }
+
+    public void setDeployRound(int round) { this.deployRound = round; }
 
     public String getTemplateName() {
         return templateName;
@@ -232,6 +319,19 @@ public class BotForce {
         return bv;
     }
 
+    public int getFixedBV() {
+        int bv = 0;
+
+        for (Entity entity : getFixedEntityList()) {
+            if (entity == null) {
+                LogManager.getLogger().error("Null entity when calculating the BV a bot force, we should never find a null here. Please investigate");
+            } else {
+                bv += entity.calculateBattleValue(true, false);
+            }
+        }
+        return bv;
+    }
+
     public BehaviorSettings getBehaviorSettings() {
         return behaviorSettings;
     }
@@ -262,7 +362,7 @@ public class BotForce {
         List<Entity> existingEntityList = new ArrayList<>();
         existingEntityList.addAll(fixedEntityList);
         existingEntityList.addAll(getTraitorEntities(c));
-        generatedEntityList = bfRandomizer.generateForce(playerUnits, existingEntityList);
+        generatedEntityList = bfRandomizer.generateForce(playerUnits, existingEntityList, c);
     }
 
     public List<UUID> getTraitorPersons() {
@@ -314,21 +414,37 @@ public class BotForce {
         return false;
     }
 
+    public BotForceStub generateStub(Campaign c) {
+        List<String> stubs = Utilities.generateEntityStub(getFullEntityList(c));
+        return new BotForceStub("<html>" +
+                getName() + " <i>" +
+                ((getTeam() == 1) ? "Allied" : "Enemy") + "</i>" +
+                " Start: " + IStartingPositions.START_LOCATION_NAMES[getStartingPos()] +
+                " Fixed BV: " + getTotalBV(c) +
+                ((null == getBotForceRandomizer()) ? "" : "<br>Random: " + getBotForceRandomizer().getDescription(c)) +
+                "</html>", stubs);
+    }
+
     public void writeToXML(final PrintWriter pw, int indent) {
         MHQXMLUtility.writeSimpleXMLOpenTag(pw, indent++, "botForce");
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "name", name);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "team", team);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "start", start);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingPos", startingPos);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startOffset", startOffset);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startWidth", startWidth);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnyNWx", startingAnyNWx);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnyNWy", startingAnyNWy);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnySEx", startingAnySEx);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnySEy", startingAnySEy);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "deployRound", deployRound);
         getCamouflage().writeToXML(pw, indent);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "colour", getColour().name());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "templateName", templateName);
         MHQXMLUtility.writeSimpleXMLOpenTag(pw, indent++, "entities");
-        for (Entity en : getFixedEntityListDirect()) {
-            if (en == null) {
-                LogManager.getLogger().error("Null entity when saving a bot force, we should never find a null here. Please investigate");
-            } else {
-                MHQXMLUtility.writeEntityWithCrewToXML(pw, indent, en, getFixedEntityListDirect());
-            }
+        try {
+            EntityListFile.writeEntityList(pw, (ArrayList<Entity>) getFixedEntityListDirect());
+        } catch (IOException ex) {
+            LogManager.getLogger().error("Error loading entities for BotForce " + this.getName(), ex);
         }
         MHQXMLUtility.writeSimpleXMLCloseTag(pw, --indent, "entities");
 
@@ -362,8 +478,23 @@ public class BotForce {
                     name = MHQXMLUtility.unEscape(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("team")) {
                     team = Integer.parseInt(wn2.getTextContent());
-                } else if (wn2.getNodeName().equalsIgnoreCase("start")) {
-                    start = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("start") // Legacy - 0.49.19 removal
+                        || wn2.getNodeName().equalsIgnoreCase("startingPos")) {
+                    startingPos = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startOffset")) {
+                    startOffset = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startWidth")) {
+                    startWidth = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnyNWx")) {
+                    startingAnyNWx = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnyNWy")) {
+                    startingAnyNWy = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnySEx")) {
+                    startingAnySEx = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnySEy")) {
+                    startingAnySEy = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("deployRound")) {
+                    deployRound = Integer.parseInt(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase(Camouflage.XML_TAG)) {
                     setCamouflage(Camouflage.parseFromXML(wn2));
                 } else if (wn2.getNodeName().equalsIgnoreCase("camoCategory")) { // Legacy - 0.49.3 removal

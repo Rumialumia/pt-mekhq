@@ -23,11 +23,9 @@ package mekhq.campaign.mission;
 
 import megamek.Version;
 import megamek.client.ui.swing.lobby.LobbyUtility;
-import megamek.common.Entity;
-import megamek.common.IStartingPositions;
-import megamek.common.MapSettings;
-import megamek.common.PlanetaryConditions;
+import megamek.common.*;
 import megamek.common.annotations.Nullable;
+import megamek.common.planetaryconditions.*;
 import mekhq.MekHQ;
 import mekhq.utilities.MHQXMLUtility;
 import mekhq.campaign.Campaign;
@@ -51,33 +49,16 @@ import java.util.*;
 /**
  * @author Jay Lawson (jaylawson39 at yahoo.com)
  */
-public class Scenario {
+public class Scenario implements IPlayerSettings {
     //region Variable Declarations
     public static final int S_DEFAULT_ID = -1;
 
-    /** terrain types **/
-    public static final int TER_LOW_ATMO = -2;
-    public static final int TER_SPACE = -1;
-    public static final int TER_HILLS = 0;
-    public static final int TER_BADLANDS = 1;
-    public static final int TER_WETLANDS = 2;
-    public static final int TER_LIGHTURBAN = 3;
-    public static final int TER_FLATLANDS = 4;
-    public static final int TER_WOODED = 5;
-    public static final int TER_HEAVYURBAN = 6;
-    public static final int TER_COASTAL = 7;
-    public static final int TER_MOUNTAINS = 8;
-    public static final String[] terrainTypes = {"Hills", "Badlands", "Wetlands",
-            "Light Urban", "Flatlands", "Wooded", "Heavy Urban", "Coastal",
-            "Mountains"
-    };
-
-
-    public static final int[] terrainChart = {
-            TER_HILLS, TER_BADLANDS, TER_WETLANDS, TER_LIGHTURBAN,
-            TER_HILLS, TER_FLATLANDS, TER_WOODED, TER_HEAVYURBAN,
-            TER_COASTAL, TER_WOODED, TER_MOUNTAINS
-    };
+    // MapBoardType
+    public static final int T_GROUND = 0;
+    public static final int T_ATMOSPHERE = 1;
+    public static final int T_SPACE = 2;
+    private static final String[] typeNames = { "Ground", "Low Atmosphere", "Space" };
+    private int boardType = T_GROUND;
 
     private String name;
     private String desc;
@@ -107,29 +88,37 @@ public class Scenario {
     private Map<String, Entity> externalIDLookup;
 
     /** map generation variables **/
-    private int terrainType;
     private int mapSizeX;
     private int mapSizeY;
+    // map can be used to represent both fixed and random maps
     private String map;
     private boolean usingFixedMap;
 
     /** planetary conditions parameters **/
-    protected int light;
-    protected int weather;
-    protected int wind;
-    protected int fog;
-    protected int atmosphere;
+    protected Light light;
+    protected Weather weather;
+    protected Wind wind;
+    protected Fog fog;
+    protected Atmosphere atmosphere;
     private int temperature;
     protected float gravity;
-    private boolean emi;
-    private boolean blowingSand;
+    private EMI emi;
+    private BlowingSand blowingSand;
     private boolean shiftWindDirection;
     private boolean shiftWindStrength;
-    private int maxWindStrength;
-    private int minWindStrength;
+    private Wind maxWindStrength;
+    private Wind minWindStrength;
 
-    /** player starting position **/
-    private int start;
+    // player deployment information
+    private int startingPos;
+    private int startOffset;
+    private int startWidth;
+    private int startingAnyNWx;
+    private int startingAnyNWy;
+    private int startingAnySEx;
+    private int startingAnySEy;
+
+    private boolean hasTrack;
 
     //Stores combinations of units and the transports they are assigned to
     private Map<UUID, List<UUID>> playerTransportLinkages;
@@ -154,20 +143,29 @@ public class Scenario {
         botForcesStubs = new ArrayList<>();
         externalIDLookup = new HashMap<>();
 
-        light = PlanetaryConditions.L_DAY;
-        weather = PlanetaryConditions.WE_NONE;
-        wind = PlanetaryConditions.WI_NONE;
-        fog = PlanetaryConditions.FOG_NONE;
-        atmosphere = PlanetaryConditions.ATMO_STANDARD;
+        light = Light.DAY;
+        weather = Weather.CLEAR;
+        wind = Wind.CALM;
+        fog = Fog.FOG_NONE;
+        atmosphere = Atmosphere.STANDARD;
         temperature = 25;
         gravity = (float) 1.0;
-        emi = false;
-        blowingSand = false;
+        emi = EMI.EMI_NONE;
+        blowingSand = BlowingSand.BLOWING_SAND_NONE;
         shiftWindDirection = false;
         shiftWindStrength = false;
-        maxWindStrength = PlanetaryConditions.WI_TORNADO_F4;
-        minWindStrength = PlanetaryConditions.WI_NONE;
+        maxWindStrength = Wind.TORNADO_F4;
+        minWindStrength = Wind.CALM;
 
+        startingPos = Board.START_ANY;
+        startOffset = 0;
+        startWidth = 3;
+        startingAnyNWx = Entity.STARTING_ANY_NONE;
+        startingAnyNWy = Entity.STARTING_ANY_NONE;
+        startingAnySEx = Entity.STARTING_ANY_NONE;
+        startingAnySEy = Entity.STARTING_ANY_NONE;
+
+        hasTrack = false;
     }
 
     public String getName() {
@@ -233,20 +231,81 @@ public class Scenario {
         this.cloaked = cloaked;
     }
 
-    public int getTerrainType() {
-        return terrainType;
+    public int getStartingPos() {
+        return startingPos;
     }
 
-    public int getStart() {
-        return start;
+    @Override
+    public void setStartingPos(int start) {
+        this.startingPos = start;
     }
 
-    public void setStart(int start) {
-        this.start = start;
+    @Override
+    public int getStartOffset() {
+        return startOffset;
     }
 
-    public void setTerrainType(int terrainType) {
-        this.terrainType = terrainType;
+    @Override
+    public void setStartOffset(int startOffset) {
+        this.startOffset = startOffset;
+    }
+
+    @Override
+    public int getStartWidth() {
+        return startWidth;
+    }
+
+    @Override
+    public void setStartWidth(int startWidth) {
+        this.startWidth = startWidth;
+    }
+
+    @Override
+    public int getStartingAnyNWx() {
+        return startingAnyNWx;
+    }
+
+    @Override
+    public void setStartingAnyNWx(int startingAnyNWx) {
+        this.startingAnyNWx = startingAnyNWx;
+    }
+
+    @Override
+    public int getStartingAnyNWy() {
+        return startingAnyNWy;
+    }
+
+    @Override
+    public void setStartingAnyNWy(int startingAnyNWy) {
+        this.startingAnyNWy = startingAnyNWy;
+    }
+
+    @Override
+    public int getStartingAnySEx() {
+        return startingAnySEx;
+    }
+
+    @Override
+    public void setStartingAnySEx(int startingAnySEx) {
+        this.startingAnySEx = startingAnySEx;
+    }
+
+    @Override
+    public int getStartingAnySEy() {
+        return startingAnySEy;
+    }
+
+    @Override
+    public void setStartingAnySEy(int startingAnySEy) {
+        this.startingAnySEy = startingAnySEy;
+    }
+
+    public void setBoardType(int boardType) {
+        this.boardType = boardType;
+    }
+
+    public int getBoardType() {
+        return boardType;
     }
 
     public int getMapSizeX() {
@@ -290,43 +349,43 @@ public class Scenario {
         this.usingFixedMap = usingFixedMap;
     }
 
-    public int getLight() {
+    public Light getLight() {
         return light;
     }
 
-    public void setLight(int light) {
+    public void setLight(Light light) {
         this.light = light;
     }
 
-    public int getWeather() {
+    public Weather getWeather() {
         return weather;
     }
 
-    public void setWeather(int weather) {
+    public void setWeather(Weather weather) {
         this.weather = weather;
     }
 
-    public int getWind() {
+    public Wind getWind() {
         return wind;
     }
 
-    public void setWind(int wind) {
+    public void setWind(Wind wind) {
         this.wind = wind;
     }
 
-    public int getFog() {
+    public Fog getFog() {
         return fog;
     }
 
-    public void setFog(int fog) {
+    public void setFog(Fog fog) {
         this.fog = fog;
     }
 
-    public int getAtmosphere() {
+    public Atmosphere getAtmosphere() {
         return atmosphere;
     }
 
-    public void setAtmosphere(int atmosphere) {
+    public void setAtmosphere(Atmosphere atmosphere) {
         this.atmosphere = atmosphere;
     }
 
@@ -346,20 +405,20 @@ public class Scenario {
         this.gravity = gravity;
     }
 
-    public boolean usesEMI() {
-        return emi;
-    }
-
-    public void setEMI(boolean emi) {
+    public void setEMI(EMI emi) {
         this.emi = emi;
     }
 
-    public boolean usesBlowingSand() {
-        return blowingSand;
+    public EMI getEMI() {
+        return emi;
     }
 
-    public void setBlowingSand(boolean blow) {
+    public void setBlowingSand(BlowingSand blow) {
         this.blowingSand = blow;
+    }
+
+    public BlowingSand getBlowingSand() {
+        return blowingSand;
     }
 
     public boolean canWindShiftDirection() { return shiftWindDirection; }
@@ -370,16 +429,64 @@ public class Scenario {
 
     public void setShiftWindStrength(boolean b) { this.shiftWindStrength = b; }
 
-    public int getMaxWindStrength() { return maxWindStrength; }
+    public Wind getMaxWindStrength() { return maxWindStrength; }
 
-    public void setMaxWindStrength(int strength) { this.maxWindStrength = strength; }
+    public void setMaxWindStrength(Wind strength) { this.maxWindStrength = strength; }
 
-    public int getMinWindStrength() { return minWindStrength; }
+    public Wind getMinWindStrength() { return minWindStrength; }
 
-    public void setMinWindStrength(int strength) { this.minWindStrength = strength; }
+    public void setMinWindStrength(Wind strength) { this.minWindStrength = strength; }
+
+    /**
+     * Create a PlanetaryConditions object from variables
+     * @return PlanetaryConditions object
+     */
+    public PlanetaryConditions createPlanetaryConditions() {
+        PlanetaryConditions planetaryConditions = new PlanetaryConditions();
+        planetaryConditions.setLight(getLight());
+        planetaryConditions.setWeather(getWeather());
+        planetaryConditions.setWind(getWind());
+        planetaryConditions.setFog(getFog());
+        planetaryConditions.setAtmosphere(getAtmosphere());
+        planetaryConditions.setTemperature(getTemperature());
+        planetaryConditions.setGravity(getGravity());
+        planetaryConditions.setEMI(getEMI());
+        planetaryConditions.setBlowingSand(getBlowingSand());
+        planetaryConditions.setShiftingWindDirection(canWindShiftDirection());
+        planetaryConditions.setShiftingWindStrength(canWindShiftStrength());
+        planetaryConditions.setWindMax(getMaxWindStrength());
+        planetaryConditions.setWindMin(getMinWindStrength());
+
+        return planetaryConditions;
+    }
+
+    /**
+     * Read the values from a PlanetaryConditions object into the Scenario variables for planetary conditions.
+     * This is necessary because MekHQ has XML and MegaMek doesn't.
+     * @param planetaryConditions A PlanetaryConditions object
+     */
+    public void readPlanetaryConditions(PlanetaryConditions planetaryConditions) {
+        this.setLight(planetaryConditions.getLight());
+        this.setWeather(planetaryConditions.getWeather());
+        this.setWind(planetaryConditions.getWind());
+        this.setFog(planetaryConditions.getFog());
+        this.setAtmosphere(planetaryConditions.getAtmosphere());
+        this.setTemperature(planetaryConditions.getTemperature());
+        this.setGravity(planetaryConditions.getGravity());
+        this.setEMI(planetaryConditions.getEMI());
+        this.setBlowingSand(planetaryConditions.getBlowingSand());
+        this.setShiftWindDirection(planetaryConditions.shiftingWindDirection());
+        this.setShiftWindStrength(planetaryConditions.shiftingWindStrength());
+        this.setMaxWindStrength(planetaryConditions.getWindMax());
+        this.setMinWindStrength(planetaryConditions.getWindMin());
+    }
 
     public ScenarioDeploymentLimit getDeploymentLimit() {
         return deploymentLimit;
+    }
+
+    public void setDeploymentLimit(ScenarioDeploymentLimit limit) {
+        this.deploymentLimit = limit;
     }
 
     public Map<UUID, List<UUID>> getPlayerTransportLinkages() {
@@ -502,39 +609,12 @@ public class Scenario {
     public void generateStub(Campaign c) {
         stub = new ForceStub(getForces(c), c);
         for (BotForce bf : botForces) {
-            botForcesStubs.add(generateBotStub(bf, c));
+            botForcesStubs.add(bf.generateStub(c));
         }
         botForces.clear();
     }
 
     public ForceStub getForceStub() {
-        return stub;
-    }
-
-    public BotForceStub generateBotStub(BotForce bf, Campaign c) {
-        List<String> stubs = generateEntityStub(bf.getFullEntityList(c));
-        return new BotForceStub("<html>" +
-                bf.getName() + " <i>" +
-                ((bf.getTeam() == 1) ? "Allied" : "Enemy") + "</i>" +
-                " Start: " + IStartingPositions.START_LOCATION_NAMES[bf.getStart()] +
-                " Fixed BV: " + bf.getTotalBV(c) +
-                ((null == bf.getBotForceRandomizer()) ? "" : "<br>Random: " + bf.getBotForceRandomizer().getDescription()) +
-                "</html>", stubs);
-    }
-
-    public List<String> generateEntityStub(List<Entity> entities) {
-        List<String> stub = new ArrayList<>();
-        for (Entity en : entities) {
-            if (null == en) {
-                stub.add("<html><font color='red'>No random assignment table found for faction</font></html>");
-            } else {
-                stub.add("<html>" + en.getCrew().getName() + " (" +
-                        en.getCrew().getGunnery() + "/" +
-                        en.getCrew().getPiloting() + "), " +
-                        "<i>" + en.getShortName() + "</i>" +
-                        "</html>");
-            }
-        }
         return stub;
     }
 
@@ -549,6 +629,10 @@ public class Scenario {
 
     public List<BotForce> getBotForces() {
         return botForces;
+    }
+
+    public void setBotForces(List<BotForce> bf) {
+        botForces = bf;
     }
 
     public void addBotForce(BotForce botForce, Campaign c) {
@@ -759,7 +843,13 @@ public class Scenario {
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "name", getName());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "desc", desc);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "report", report);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "start", start);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingPos", startingPos);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startOffset", startOffset);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startWidth", startWidth);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnyNWx", startingAnyNWx);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnyNWy", startingAnyNWy);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnySEx", startingAnySEx);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "startingAnySEy", startingAnySEy);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "status", getStatus().name());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "id", id);
         if (null != stub) {
@@ -803,23 +893,24 @@ public class Scenario {
 
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "date", date);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "cloaked", isCloaked());
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "terrainType", terrainType);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "boardType", boardType);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "hasTrack", hasTrack);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "usingFixedMap", isUsingFixedMap());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "mapSize", mapSizeX, mapSizeY);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "map", map);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "light", light);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "weather", weather);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "wind", wind);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "fog", fog);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "light", light.ordinal());
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "weather", weather.ordinal());
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "wind", wind.ordinal());
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "fog", fog.ordinal());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "temperature", temperature);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "atmosphere", atmosphere);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "atmosphere", atmosphere.ordinal());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "gravity", gravity);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "emi", emi);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "blowingSand", blowingSand);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "emi", emi.isEMI());
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "blowingSand", blowingSand.isBlowingSand());
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "shiftWindDirection", shiftWindDirection);
         MHQXMLUtility.writeSimpleXMLTag(pw, indent, "shiftWindStrength", shiftWindStrength);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "maxWindStrength", maxWindStrength);
-        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "minWindStrength", minWindStrength);
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "maxWindStrength", maxWindStrength.ordinal());
+        MHQXMLUtility.writeSimpleXMLTag(pw, indent, "minWindStrength", minWindStrength.ordinal());
         return indent;
     }
 
@@ -935,45 +1026,62 @@ public class Scenario {
                         retVal.addBotForce(bf, c);
                     }
                 } else if (wn2.getNodeName().equalsIgnoreCase("scenarioDeploymentLimit")) {
-                    retVal.deploymentLimit =  ScenarioDeploymentLimit.generateInstanceFromXML(wn2, c, version);
+                    retVal.deploymentLimit = ScenarioDeploymentLimit.generateInstanceFromXML(wn2, c, version);
                 } else if (wn2.getNodeName().equalsIgnoreCase("usingFixedMap")) {
                     retVal.setUsingFixedMap(Boolean.parseBoolean(wn2.getTextContent().trim()));
-                } else if (wn2.getNodeName().equalsIgnoreCase("terrainType")) {
-                    retVal.terrainType = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("boardType")) {
+                    retVal.boardType = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("hasTrack")) {
+                    retVal.hasTrack = Boolean.parseBoolean(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("mapSize")) {
                     String[] xy = wn2.getTextContent().split(",");
                     retVal.mapSizeX = Integer.parseInt(xy[0]);
                     retVal.mapSizeY = Integer.parseInt(xy[1]);
                 } else if (wn2.getNodeName().equalsIgnoreCase("map")) {
                     retVal.map = wn2.getTextContent().trim();
-                }  else if (wn2.getNodeName().equalsIgnoreCase("start")) {
-                    retVal.start = Integer.parseInt(wn2.getTextContent());
+                }  else if (wn2.getNodeName().equalsIgnoreCase("start")
+                        || wn2.getNodeName().equalsIgnoreCase("startingPos")) {
+                    retVal.startingPos = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startOffset")) {
+                    retVal.startOffset = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startWidth")) {
+                    retVal.startWidth = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnyNWx")) {
+                    retVal.startingAnyNWx = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnyNWy")) {
+                    retVal.startingAnyNWy = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnySEx")) {
+                    retVal.startingAnySEx = Integer.parseInt(wn2.getTextContent());
+                } else if (wn2.getNodeName().equalsIgnoreCase("startingAnySEy")) {
+                    retVal.startingAnySEy = Integer.parseInt(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("light")) {
-                    retVal.light = Integer.parseInt(wn2.getTextContent());
+                    retVal.light = Light.getLight(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("weather")) {
-                    retVal.weather = Integer.parseInt(wn2.getTextContent());
+                    retVal.weather = Weather.getWeather(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("wind")) {
-                    retVal.wind = Integer.parseInt(wn2.getTextContent());
+                    retVal.wind = Wind.getWind(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("fog")) {
-                    retVal.fog = Integer.parseInt(wn2.getTextContent());
+                    retVal.fog = Fog.getFog(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("atmosphere")) {
-                    retVal.atmosphere = Integer.parseInt(wn2.getTextContent());
+                    retVal.atmosphere = Atmosphere.getAtmosphere(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("temperature")) {
                     retVal.temperature = Integer.parseInt(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("gravity")) {
                     retVal.gravity = Float.parseFloat(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("emi")) {
-                    retVal.emi = Boolean.parseBoolean(wn2.getTextContent());
+                    EMI emi = Boolean.parseBoolean(wn2.getTextContent()) ? EMI.EMI : EMI.EMI_NONE;
+                    retVal.emi = emi;
                 } else if (wn2.getNodeName().equalsIgnoreCase("blowingSand")) {
-                    retVal.blowingSand = Boolean.parseBoolean(wn2.getTextContent());
+                    BlowingSand blowingSand = Boolean.parseBoolean(wn2.getTextContent()) ? BlowingSand.BLOWING_SAND : BlowingSand.BLOWING_SAND_NONE;
+                    retVal.blowingSand = blowingSand;
                 } else if (wn2.getNodeName().equalsIgnoreCase("shiftWindDirection")) {
                     retVal.shiftWindDirection = Boolean.parseBoolean(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("shiftWindStrength")) {
                     retVal.shiftWindStrength = Boolean.parseBoolean(wn2.getTextContent());
                 } else if (wn2.getNodeName().equalsIgnoreCase("maxWindStrength")) {
-                    retVal.maxWindStrength = Integer.parseInt(wn2.getTextContent());
+                    retVal.maxWindStrength = Wind.getWind(Integer.parseInt(wn2.getTextContent()));
                 } else if (wn2.getNodeName().equalsIgnoreCase("minWindStrength")) {
-                    retVal.minWindStrength = Integer.parseInt(wn2.getTextContent());
+                    retVal.minWindStrength = Wind.getWind(Integer.parseInt(wn2.getTextContent()));
                 }
 
             }
@@ -1012,4 +1120,17 @@ public class Scenario {
         return getForces(campaign).getUnits().stream().
                 anyMatch(unitID -> unitID.equals(UUID.fromString(entity.getExternalIdAsString())));
     }
+
+    public boolean getHasTrack() {
+        return hasTrack;
+    }
+
+    public void setHasTrack(boolean b) {
+        hasTrack = b;
+    }
+
+    public static String getBoardTypeName(int i) {
+        return typeNames[i];
+    }
+
 }

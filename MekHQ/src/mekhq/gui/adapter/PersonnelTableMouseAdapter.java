@@ -769,11 +769,11 @@ public class PersonnelTableMouseAdapter extends JPopupMenuAdapter {
                 if (people.length > 1) {
                     nkd = new AddOrEditKillEntryDialog(gui.getFrame(), true, null,
                             (unit != null) ? unit.getName() : resources.getString("bareHands.text"),
-                            gui.getCampaign().getLocalDate());
+                            gui.getCampaign().getLocalDate(), gui.getCampaign());
                 } else {
                     nkd = new AddOrEditKillEntryDialog(gui.getFrame(), true, selectedPerson.getId(),
                             (unit != null) ? unit.getName() : resources.getString("bareHands.text"),
-                            gui.getCampaign().getLocalDate());
+                            gui.getCampaign().getLocalDate(), gui.getCampaign());
                 }
                 nkd.setVisible(true);
                 if (nkd.getKill().isPresent()) {
@@ -1995,64 +1995,72 @@ public class PersonnelTableMouseAdapter extends JPopupMenuAdapter {
             JMenuHelpers.addMenuIfNonEmpty(popup, menu);
         }
 
-        // change portrait
-        menuItem = new JMenuItem(resources.getString(oneSelected ? "changePortrait.text" : "bulkAssignSinglePortrait.text"));
-        menuItem.setActionCommand(CMD_EDIT_PORTRAIT);
-        menuItem.addActionListener(this);
-        popup.add(menuItem);
+        if(!oneSelected) {
+            menuItem = new JMenuItem(resources.getString("bulkAssignSinglePortrait.text"));
+            menuItem.setActionCommand(CMD_EDIT_PORTRAIT);
+            menuItem.addActionListener(this);
+            popup.add(menuItem);
+        }
 
         if (oneSelected) {
-            // change Biography
+            menu = new JMenu(resources.getString("changeProfile.text"));
+
+            menuItem = new JMenuItem(resources.getString("changePortrait.text"));
+            menuItem.setActionCommand(CMD_EDIT_PORTRAIT);
+            menuItem.addActionListener(this);
+            menu.add(menuItem);
+
             menuItem = new JMenuItem(resources.getString("changeBiography.text"));
             menuItem.setActionCommand(CMD_EDIT_BIOGRAPHY);
             menuItem.addActionListener(this);
-            popup.add(menuItem);
+            menu.add(menuItem);
 
             menuItem = new JMenuItem(resources.getString("changeCallsign.text"));
             menuItem.setActionCommand(CMD_CALLSIGN);
             menuItem.addActionListener(this);
-            popup.add(menuItem);
+            menu.add(menuItem);
 
+            JMenuHelpers.addMenuIfNonEmpty(popup, menu);
+        }
+
+        menu = new JMenu(resources.getString("editLogs.text"));
+
+        if(oneSelected) {
             menuItem = new JMenuItem(resources.getString("editPersonnelLog.text"));
             menuItem.setActionCommand(CMD_EDIT_PERSONNEL_LOG);
             menuItem.addActionListener(this);
-            popup.add(menuItem);
-        }
+            menu.add(menuItem);
 
-        menuItem = new JMenuItem(resources.getString("addSingleLogEntry.text"));
-        menuItem.setActionCommand(CMD_ADD_LOG_ENTRY);
-        menuItem.addActionListener(this);
-        popup.add(menuItem);
-
-        if (oneSelected) {
-            // Edit scenario log
             menuItem = new JMenuItem(resources.getString("editScenarioLog.text"));
             menuItem.setActionCommand(CMD_EDIT_SCENARIO_LOG);
             menuItem.addActionListener(this);
-            popup.add(menuItem);
-        }
+            menu.add(menuItem);
 
-        // Add one item to personnel scenario logs
-        menuItem = new JMenuItem(resources.getString("addScenarioEntry.text"));
-        menuItem.setActionCommand(CMD_ADD_SCENARIO_ENTRY);
-        menuItem.addActionListener(this);
-        popup.add(menuItem);
-
-        if (oneSelected) {
             menuItem = new JMenuItem(resources.getString("editKillLog.text"));
             menuItem.setActionCommand(CMD_EDIT_KILL_LOG);
             menuItem.addActionListener(this);
-            menuItem.setEnabled(true);
-            popup.add(menuItem);
+            menu.add(menuItem);
+        } else {
+            menuItem = new JMenuItem(resources.getString("addSingleLogEntry.text"));
+            menuItem.setActionCommand(CMD_ADD_LOG_ENTRY);
+            menuItem.addActionListener(this);
+            menu.add(menuItem);
+
+            menuItem = new JMenuItem(resources.getString("addScenarioEntry.text"));
+            menuItem.setActionCommand(CMD_ADD_SCENARIO_ENTRY);
+            menuItem.addActionListener(this);
+            menu.add(menuItem);
+
+            if (StaticChecks.allHaveSameUnit(selected)) {
+                menuItem = new JMenuItem(resources.getString("assignKill.text"));
+                menuItem.setActionCommand(CMD_ADD_KILL);
+                menuItem.addActionListener(this);
+                menuItem.setEnabled(true);
+                menu.add(menuItem);
+            }
         }
 
-        if (oneSelected || StaticChecks.allHaveSameUnit(selected)) {
-            menuItem = new JMenuItem(resources.getString("assignKill.text"));
-            menuItem.setActionCommand(CMD_ADD_KILL);
-            menuItem.addActionListener(this);
-            menuItem.setEnabled(true);
-            popup.add(menuItem);
-        }
+        JMenuHelpers.addMenuIfNonEmpty(popup, menu);
 
         menuItem = new JMenuItem(resources.getString("exportPersonnel.text"));
         menuItem.addActionListener(evt -> gui.savePersonFile());
@@ -2157,7 +2165,8 @@ public class PersonnelTableMouseAdapter extends JPopupMenuAdapter {
                 || !gui.getCampaign().getCampaignOptions().getRandomMarriageMethod().isNone())
                 && Stream.of(selected).allMatch(p -> p.isMarriageable() == person.isMarriageable())) {
             cbMenuItem = new JCheckBoxMenuItem(resources.getString("miMarriageable.text"));
-            cbMenuItem.setToolTipText(resources.getString("miMarriageable.toolTipText"));
+            cbMenuItem.setToolTipText(MultiLineTooltip.splitToolTip(String.format(resources.getString("miMarriageable.toolTipText"),
+                    gui.getCampaign().getCampaignOptions().getMinimumMarriageAge()), 100));
             cbMenuItem.setName("miMarriageable");
             cbMenuItem.setSelected(person.isMarriageable());
             cbMenuItem.addActionListener(evt -> {
@@ -2172,7 +2181,7 @@ public class PersonnelTableMouseAdapter extends JPopupMenuAdapter {
                 && Stream.of(selected).allMatch(p -> p.getGender().isFemale())
                 && Stream.of(selected).allMatch(p -> p.isTryingToConceive() == person.isTryingToConceive())) {
             cbMenuItem = new JCheckBoxMenuItem(resources.getString("miTryingToConceive.text"));
-            cbMenuItem.setToolTipText(resources.getString("miTryingToConceive.toolTipText"));
+            cbMenuItem.setToolTipText(MultiLineTooltip.splitToolTip(resources.getString("miTryingToConceive.toolTipText"), 100));
             cbMenuItem.setName("miTryingToConceive");
             cbMenuItem.setSelected(person.isTryingToConceive());
             cbMenuItem.addActionListener(evt -> {

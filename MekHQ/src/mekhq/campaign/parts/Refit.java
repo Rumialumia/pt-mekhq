@@ -23,6 +23,7 @@ package mekhq.campaign.parts;
 import megamek.Version;
 import megamek.common.*;
 import megamek.common.annotations.Nullable;
+import megamek.common.equipment.MiscMounted;
 import megamek.common.loaders.BLKFile;
 import megamek.common.loaders.EntityLoadingException;
 import megamek.common.verifier.EntityVerifier;
@@ -1569,15 +1570,7 @@ public class Refit extends Part implements IAcquisitionWork {
         getCampaign().addCustom(newEntity.getChassis() + " " + newEntity.getModel());
 
         try {
-            MechSummaryCache.getInstance().loadMechData();
-
-            // I need to change the new entity to the one from the mtf file now, so that equipment numbers will match
-
-            MechSummary summary = MechSummaryCache.getInstance().getMech(newEntity.getChassis() + " " + newEntity.getModel());
-            if (null == summary) {
-                throw new EntityLoadingException(String.format("Could not load %s %s from the mech cache",
-                        newEntity.getChassis(), newEntity.getModel()));
-            }
+            MechSummary summary = Utilities.retrieveOriginalUnit(newEntity);
 
             newEntity = new MechFileParser(summary.getSourceFile(), summary.getEntryName()).getEntity();
             LogManager.getLogger().info(String.format("Saved %s %s to %s",
@@ -1601,6 +1594,7 @@ public class Refit extends Part implements IAcquisitionWork {
             throw ex;
         }
     }
+
 
     private int getTimeMultiplier() {
         int mult;
@@ -2465,7 +2459,7 @@ public class Refit extends Part implements IAcquisitionWork {
             }
             return new AeroHeatSink(0, ((Aero) entity).getHeatType(), false, campaign);
         } else if (entity instanceof Mech) {
-            Optional<Mounted> mount = entity.getMisc().stream()
+            Optional<MiscMounted> mount = entity.getMisc().stream()
                     .filter(m -> m.getType().hasFlag(MiscType.F_HEAT_SINK)
                             || m.getType().hasFlag(MiscType.F_DOUBLE_HEAT_SINK))
                     .findAny();

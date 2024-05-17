@@ -31,12 +31,14 @@ import megamek.common.options.IOption;
 import megamek.common.options.IOptionGroup;
 import megamek.common.options.OptionsConstants;
 import mekhq.MekHQ;
+import mekhq.campaign.universe.PlanetarySystem;
 import mekhq.utilities.MHQXMLUtility;
 import mekhq.Utilities;
 import mekhq.campaign.Campaign;
 import mekhq.campaign.CampaignOptions;
 import mekhq.campaign.ExtraData;
 import mekhq.campaign.event.PersonChangedEvent;
+import mekhq.campaign.event.PersonStatusChangedEvent;
 import mekhq.campaign.finances.Money;
 import mekhq.campaign.force.Force;
 import mekhq.campaign.io.CampaignXmlParser;
@@ -989,7 +991,7 @@ public class Person {
             removeAllTechJobs(campaign);
         }
 
-        MekHQ.triggerEvent(new PersonChangedEvent(this));
+        MekHQ.triggerEvent(new PersonStatusChangedEvent(this));
     }
 
     /**
@@ -1119,7 +1121,7 @@ public class Person {
     }
 
     public boolean isChild(final LocalDate today) {
-        return getAge(today) <= 13;
+        return getAge(today) < 18;
     }
 
     public Genealogy getGenealogy() {
@@ -1587,9 +1589,22 @@ public class Person {
                         retVal.setOriginFaction(Factions.getInstance().getFaction(wn2.getTextContent().trim()));
                     }
                 } else if (wn2.getNodeName().equalsIgnoreCase("planetId")) {
-                    String systemId = wn2.getAttributes().getNamedItem("systemId").getTextContent().trim();
-                    String planetId = wn2.getTextContent().trim();
-                    retVal.originPlanet = c.getSystemById(systemId).getPlanetById(planetId);
+                    String systemId = "", planetId = "";
+                    try {
+                        systemId = wn2.getAttributes().getNamedItem("systemId").getTextContent().trim();
+                        planetId = wn2.getTextContent().trim();
+                        PlanetarySystem ps = c.getSystemById(systemId);
+                        Planet p = null;
+                        if (ps == null) {
+                            ps = c.getSystemByName(systemId);
+                        }
+                        if (ps != null) {
+                            p = ps.getPlanetById(planetId);
+                        }
+                        retVal.originPlanet = p;
+                    } catch (NullPointerException e) {
+                        LogManager.getLogger().error("Error loading originPlanet for " + systemId + ", " + planetId, e);
+                    }
                 } else if (wn2.getNodeName().equalsIgnoreCase("phenotype")) {
                     retVal.phenotype = Phenotype.parseFromString(wn2.getTextContent().trim());
                 } else if (wn2.getNodeName().equalsIgnoreCase("bloodname")) {
@@ -1927,38 +1942,48 @@ public class Person {
         // TODO : Figure out a way to allow negative salaries... could be used to simulate a Holovid
         // TODO : star paying to be part of the company, for example
         Money primaryBase = campaign.getCampaignOptions().getRoleBaseSalaries()[getPrimaryRole().ordinal()];
-        primaryBase = primaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryXPMultipliers().get(getSkillLevel(campaign, false)));
-        if (getPrimaryRole().isSoldierOrBattleArmour()) {
-            if (hasSkill(SkillType.S_ANTI_MECH)) {
-                primaryBase = primaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryAntiMekMultiplier());
-            }
 
+        // SpecInf is a special case, this needs to be applied first to bring base salary up to RAW.
+        if (getPrimaryRole().isSoldierOrBattleArmour()) {
             if ((getUnit() != null) && getUnit().isConventionalInfantry()
                     && ((Infantry) getUnit().getEntity()).hasSpecialization()) {
                 primaryBase = primaryBase.multipliedBy(campaign.getCampaignOptions().getSalarySpecialistInfantryMultiplier());
             }
         }
 
+        // Experience multiplier
+        primaryBase = primaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryXPMultipliers().get(getSkillLevel(campaign, false)));
+
+        // Specialization multiplier
+        if (getPrimaryRole().isSoldierOrBattleArmour()) {
+            if (hasSkill(SkillType.S_ANTI_MECH)) {
+                primaryBase = primaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryAntiMekMultiplier());
+            }
+        }
+
+        // CamOps doesn't cover secondary roles, so we just half the base salary of the secondary role.
         Money secondaryBase = campaign.getCampaignOptions().getRoleBaseSalaries()[getSecondaryRole().ordinal()].dividedBy(2);
-        secondaryBase = secondaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryXPMultipliers().get(getSkillLevel(campaign, true)));
+
+        // SpecInf is a special case, this needs to be applied first to bring base salary up to RAW.
         if (getSecondaryRole().isSoldierOrBattleArmour()) {
             if (hasSkill(SkillType.S_ANTI_MECH)) {
                 secondaryBase = secondaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryAntiMekMultiplier());
             }
+        }
 
-            if ((getUnit() != null) && getUnit().isConventionalInfantry()
-                    && ((Infantry) getUnit().getEntity()).hasSpecialization()) {
-                secondaryBase = secondaryBase.multipliedBy(campaign.getCampaignOptions().getSalarySpecialistInfantryMultiplier());
+        // Experience modifier
+        secondaryBase = secondaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryXPMultipliers().get(getSkillLevel(campaign, true)));
+
+        // Specialization
+        if (getSecondaryRole().isSoldierOrBattleArmour()) {
+            if (hasSkill(SkillType.S_ANTI_MECH)) {
+                secondaryBase = secondaryBase.multipliedBy(campaign.getCampaignOptions().getSalaryAntiMekMultiplier());
             }
         }
 
         // TODO: distinguish DropShip, JumpShip, and WarShip crew
         // TODO: Add era mod to salary calc..
-        return primaryBase.plus(secondaryBase)
-                .multipliedBy(getRank().isOfficer()
-                        ? campaign.getCampaignOptions().getSalaryCommissionMultiplier()
-                        : campaign.getCampaignOptions().getSalaryEnlistedMultiplier())
-                .multipliedBy(getRank().getPayMultiplier());
+        return primaryBase.plus(secondaryBase);
     }
 
     /**
@@ -3185,7 +3210,7 @@ public class Person {
     }
     //endregion injuries
 
-    /* For use by Against the Bot retirement/defection rolls */
+    /* For use by Against the Bot Employee Turnover rolls */
     public int getOriginalUnitWeight() {
         return originalUnitWeight;
     }

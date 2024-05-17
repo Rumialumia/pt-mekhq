@@ -37,7 +37,7 @@ dependencies {
         // We don't need the python and javascript engine taking up space
         exclude group: 'org.python', module: 'jython'
         exclude group: 'org.mozilla', module: 'rhino'
-        // Eclipse IDE Multiple Dependency errors.
+        // Eclipse IDE Multiple Dependency errors. 
         exclude group: 'xml-apis'
     }
 
@@ -55,7 +55,7 @@ dependencies {
     runtimeOnly 'org.glassfish.jaxb:jaxb-runtime:4.0.2'
     // Required for mml printing scaled vector graphics (SVG) - Eclipse IDE Compatability.
     runtimeOnly 'xml-apis:xml-apis-ext:1.3.04'
-
+    
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.2.0'
@@ -191,11 +191,14 @@ task stageFiles(type: Copy) {
     include "${data}/images/misc/"
     include "${data}/images/stratcon/"
     include "${data}/images/universe/"
+    include "${data}/images/storysplash/"
     include "${data}/scenariomodifiers/"
     include "${data}/scenariotemplates/"
     include "${data}/stratconbiomedefinitions/"
     include "${data}/stratconcontractdefinitions/"
     include "${data}/stratconfacilities/"
+    include "${data}/storyarcs/"
+    include "${data}/terrainconditionsodds/"
     include "${docs}/**"
     include "${mmconf}/**"
     include "${project.ext.plugins}/"
@@ -203,7 +206,6 @@ task stageFiles(type: Copy) {
     include "${userdata}/data/universe/"
     include 'license.txt'
     include 'SubmitBug.html'
-    include 'changes.txt'
 
     into fileStagingDir
 
@@ -212,7 +214,7 @@ task stageFiles(type: Copy) {
     inputs.dir "${docs}"
     inputs.dir "${mmconf}"
     inputs.dir "${project.ext.plugins}"
-    inputs.files 'license.txt', 'SubmitBug.html', 'changes.ods'
+    inputs.files 'license.txt', 'SubmitBug.html'
     outputs.dir fileStagingDir
 
     doLast {
@@ -487,7 +489,7 @@ task sourceZip (type: Zip) {
         exclude "**/build/**"
         exclude "**/.*"
     }
-    archiveFileName = "piratetech-mekhq-${archiveVersion}-source.zip"
+    archiveFileName = "mekhq-${archiveVersion}-source.zip"
     destinationDirectory = file(distributionDir)
 }
 
@@ -497,7 +499,7 @@ task sourceTar (type: Tar) {
         exclude "**/build/**"
         exclude "**/.*"
     }
-    archiveFileName = "piratetech-mekhq-${archiveVersion}-source.tar.gz"
+    archiveFileName = "mekhq-${archiveVersion}-source.tar.gz"
     compression = Compression.GZIP
     destinationDirectory = file(distributionDir)
 }
